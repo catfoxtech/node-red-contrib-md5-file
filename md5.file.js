@@ -34,26 +34,33 @@ module.exports = function (RED) {
     node.filepath = config.filepath;
     node.hashField = config.hashField;
 
-    node.on("input", function (msg) {
-        if (node.filepath === undefined) {
-            node.filepath = msg.filepath;
-        }
-        if (node.hashField === undefined) {
-            node.hashField = msg.hashField;
-        }
-        
-      md5File(node.filepath)
+    node.on("input", function (msg, send, done) {
+      const filename = node.filepath || msg.filepath || msg.filename;
+      const hashField = node.hashField || msg.hashField;
+
+      md5File(filename)
         .then((hash) => {
-          RED.util.setMessageProperty(msg, node.hashField, hash);
+          RED.util.setMessageProperty(msg, hashField, hash);
           node.status({
             fill: "green",
             shape: "dot",
-            text: node.filepath + " : " + hash,
+            text: filename + " : " + hash,
           });
-          node.send(msg);
+          send(msg);
+
+          if (done) {
+            done();
+          }
         })
         .catch((error) => {
           node.status({ fill: "red", shape: "dot", text: error.message });
+
+          if (done) {
+            done(error);
+          }
+          else {
+            node.error(error, msg);
+          }
         });
     });
   }
